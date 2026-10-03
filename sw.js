@@ -1,5 +1,5 @@
 // Offline-Cache für das Haushaltsbuch. Bei Änderungen an der App VERSION erhöhen.
-const VERSION = "hb-v7";
+const VERSION = "hb-v8";
 // Belegerkennung (ca. 5 MB) in eigenem Cache: erst bei Nutzung geladen, übersteht App-Updates. Bei neuen ki/-Dateien KI_CACHE erhöhen.
 const KI_CACHE = "hb-ki-1";
 const CORE = ["./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];

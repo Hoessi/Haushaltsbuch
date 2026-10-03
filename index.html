@@ -797,7 +797,7 @@ kbd{font-family:var(--font-body);font-size:12px;border:1px solid var(--line-stro
     <button type="button" class="btn primary block" id="impGo">Importieren</button>
   </div>
 </div>
-<input type="file" id="fileIn" accept=".csv,.txt,.json,text/csv,application/json" hidden>
+<input type="file" id="fileIn" hidden>
 
 <script>
 (() => {
@@ -2316,7 +2316,7 @@ function txSheet(t){
   $$("[data-qd]", box).forEach(bt => bt.addEventListener("click", () => { $("#eDate", box).value = addDays(TODAY, +bt.dataset.qd); }));
   nameIn.addEventListener("input", () => { if (!catTouched) catSel = guess(); drawCats(); ruleSync(); sugSync(); });
   amtIn.addEventListener("input", sugSync);
-  let scanned = false;
+  let scanned = false, scanDue = "";
   if ($("#eScan", box)){
     const fin = $("#eScanIn", box), msg = $("#eScanMsg", box), btn = $("#eScan", box);
     const say = (t, err) => { msg.textContent = t; msg.hidden = !t; msg.classList.toggle("err", !!err); };
@@ -2339,6 +2339,8 @@ function txSheet(t){
         if (cid && cat(cid).type === (dir > 0 ? "in" : "out")){ catSel = cid; catTouched = true; } else if (!catTouched) catSel = guess();
         const note = [v(f.invoiceNo) && "Rechnung " + v(f.invoiceNo), /^\d{4}-\d\d-\d\d$/.test(v(f.dueDate) || "") && "fällig " + dDE(v(f.dueDate)), v(f.payment) === "bar" && "bar bezahlt"].filter(Boolean).join(", ");
         if (note && !$("#eNote", box).value) $("#eNote", box).value = note.slice(0, 120);
+        const due = v(f.dueDate), payd = v(f.payment);
+        scanDue = /^\d{4}-\d\d-\d\d$/.test(due || "") ? due : (v(f.kind) === "rechnung" && payd !== "bar" && payd !== "karte" ? "+30" : "");
         drawCats(); ruleSync(); sugSync(); scanned = true;
         const warn = v(f.warning);
         say((unsure.length ? `Erkannt. Bitte prüfen: ${unsure.join(", ")}.` : "Erkannt. Bitte kurz prüfen und speichern.") + (warn ? " " + warn : ""));
@@ -2361,7 +2363,7 @@ function txSheet(t){
     Object.assign(rec, {date, amount:r2(Math.abs(amt)*dir), name, cat:catSel || fallback(), note:$("#eNote", box).value.trim(), manualCat:true});
     if ($("#ePurp", box)) rec.purpose = $("#ePurp", box).value.trim(); else if (isNew) rec.purpose = "";
     if (!rec.note) delete rec.note;
-    if (isNew && scanned) rec.scan = true;
+    if (isNew && scanned){ rec.scan = true; const due = scanDue === "+30" ? addDays(date, 30) : scanDue; if (due && due > date) rec.due = due; }
     months.add(ym(date));
     let ruled = 0;
     if (!$("#ruleBox", box).hidden && $("#eRule", box).checked) ruled = addRule(name, rec.cat, months);
@@ -2583,7 +2585,10 @@ function buildImport(){
       if (cents(x) !== cents(t)) continue;
       const special = c => c === "Bargeld" || isNeutral(c);
       if ((special(c0) || special(x.cat)) && x.cat !== c0) continue;
-      const d = Math.abs(daysBetween(x.date, t.date)); if (d > 5) continue;
+      // Gescannte Rechnung: Überweisung darf bis 5 Tage nach Fälligkeit kommen
+      let d = Math.abs(daysBetween(x.date, t.date));
+      if (d > 5 && x.due && t.date > x.date && t.date <= addDays(x.due, 5)) d = Math.min(d, Math.abs(daysBetween(x.due, t.date)));
+      else if (d > 5) continue;
       pairs.push({t, x, d, sim:words(x.name).some(w => hay.includes(w)) ? 0 : 1, late:x.date > t.date ? 1 : 0});
     }
   }
@@ -2624,7 +2629,7 @@ function renderImport(){
   $("#impSum").innerHTML = parsed.length ? `<ul class="imp-list">
       <li><strong>${N(fresh.length, "neue Buchung", "neue Buchungen")}</strong></li>
       ${dups ? `<li>${N(dups, "ist", "sind")} schon vorhanden und ${dups === 1 ? "wird" : "werden"} übersprungen, auch wenn du sie inzwischen bearbeitet hast.</li>` : ""}
-      ${matches.length ? `<li>${N(matches.length, "Bankbuchung passt", "Bankbuchungen passen")} zu deinen eigenen Einträgen (gleicher Betrag, höchstens 5 Tage auseinander).${opt("match", "Abgleichen statt doppelt anlegen. Deine Angaben bleiben.")}<ul class="imp-pairs">${matches.slice(0,5).map(pair).join("")}${matches.length > 5 ? `<li>und ${matches.length-5} weitere</li>` : ""}</ul></li>` : ""}
+      ${matches.length ? `<li>${N(matches.length, "Bankbuchung passt", "Bankbuchungen passen")} zu deinen eigenen Einträgen (gleicher Betrag, höchstens 5 Tage auseinander, bei gescannten Rechnungen bis zur Fälligkeit).${opt("match", "Abgleichen statt doppelt anlegen. Deine Angaben bleiben.")}<ul class="imp-pairs">${matches.slice(0,5).map(pair).join("")}${matches.length > 5 ? `<li>und ${matches.length-5} weitere</li>` : ""}</ul></li>` : ""}
       ${likely.length ? `<li>${N(likely.length, "ist", "sind")} wahrscheinlich schon vorhanden: gleicher Tag, Betrag und Empfänger, nur der Text der Bank weicht ab.${opt("likely", "Trotzdem importieren")}</li>` : ""}
       ${gone.length ? `<li>${N(gone.length, "Buchung hast", "Buchungen hast")} du früher gelöscht, sie ${gone.length === 1 ? "bleibt" : "bleiben"} gelöscht.${opt("gone", "Wieder importieren")}</li>` : ""}
     </ul>
@@ -2731,6 +2736,8 @@ function undoImport(batch){
 }
 async function handleFile(file){
   if (!file) return;
+  // Ohne accept-Filter (Android graut CSV aus Banking-Apps sonst teils aus): Inhalt prüfen statt Dateityp
+  if (file.size > 30e6 || /^(image|video|audio)\//.test(file.type)){ toast("Das ist keine CSV-Datei. Wähle den Umsatz-Export deiner Bank (CSV) oder eine Sicherung (JSON)."); return; }
   // Erst importieren, wenn der Speicher geladen ist, sonst würde gegen Beispieldaten verglichen
   if (store.kind === "pending" && store.ready){ toast("Speicher wird verbunden …"); await store.ready; }
   try {
