@@ -702,6 +702,9 @@ kbd{font-family:var(--font-body);font-size:12px;border:1px solid var(--line-stro
 .imp-list .check{min-height:36px;margin-top:2px}
 .imp-pairs{margin:4px 0 0;padding-left:1.1em;color:var(--fg-3);font-size:var(--fs-xs);display:flex;flex-direction:column;gap:2px}
 .imp-sum .note{margin-top:var(--s-2);font-size:var(--fs-xs)}
+.scan-box{display:flex;flex-direction:column;gap:6px}
+.scan-msg{margin:0;font-size:var(--fs-sm);color:var(--fg-2)}
+.scan-msg.err{color:var(--neg,#b42318)}
 
 </style>
 </head>
@@ -745,7 +748,7 @@ kbd{font-family:var(--font-body);font-size:12px;border:1px solid var(--line-stro
 <symbol id="i-steuern-behoerden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 4l9 5.5zM5.5 10v8M10 10v8M14 10v8M18.5 10v8M3 20.5h18"/></symbol>
 <symbol id="i-umbuchung" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15M15.5 4.5 19 8l-3.5 3.5M20 16H5M8.5 12.5 5 16l3.5 3.5"/></symbol>
 <symbol id="i-sonstiges" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></symbol>
-<symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></symbol>
+<symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h2l1.5-2.5h6L16.5 7h2A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="12.5" r="3.5"/></symbol><symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol><symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></symbol>
 <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
@@ -2202,9 +2205,9 @@ const themeSeg = () => `<div class="seg-sm" role="group" aria-label="Farbschema"
 /* ---------- Dialoge ---------- */
 let lastFocus = null;
 // Zurück-Geste (Android) schließt den offenen Dialog statt der App
-let sheetHist = false;
+let sheetHist = false, sheetBack = false;
 function sheetPush(){ if (!sheetHist){ try { history.pushState({hbSheet:1}, ""); sheetHist = true; } catch {} } }
-function sheetPop(){ setTimeout(() => { if (sheetHist && $$(".sheet").every(x => x.hidden)){ sheetHist = false; history.back(); } }, 0); }
+function sheetPop(){ setTimeout(() => { if (sheetHist && $$(".sheet").every(x => x.hidden)){ sheetHist = false; sheetBack = true; history.back(); } }, 0); }
 function openSheet(html, cls = "narrow"){
   lastFocus = document.activeElement; sheetPush();
   const s = $("#sheet");
@@ -2242,6 +2245,7 @@ function txSheet(t){
   const names = knownNames();
   const box = openSheet(`<form id="txForm" class="stack" style="gap:var(--s-4)" novalidate>
     ${sheetHead(isNew ? "Buchung erfassen" : "Buchung bearbeiten")}
+    ${isNew && SCAN_OK ? `<div class="scan-box"><button type="button" class="btn block" id="eScan">${ic("camera","ic sm")} Beleg scannen</button><input type="file" id="eScanIn" accept="image/*" hidden><p class="scan-msg" id="eScanMsg" role="status" hidden></p></div>` : ""}
     <div class="seg" role="radiogroup" aria-label="Art">
       <label><input type="radio" name="dir" value="out" ${dir < 0 ? "checked" : ""}><span>Ausgabe</span></label>
       <label><input type="radio" name="dir" value="in" ${dir > 0 ? "checked" : ""}><span>Einnahme</span></label>
@@ -2312,6 +2316,37 @@ function txSheet(t){
   $$("[data-qd]", box).forEach(bt => bt.addEventListener("click", () => { $("#eDate", box).value = addDays(TODAY, +bt.dataset.qd); }));
   nameIn.addEventListener("input", () => { if (!catTouched) catSel = guess(); drawCats(); ruleSync(); sugSync(); });
   amtIn.addEventListener("input", sugSync);
+  let scanned = false;
+  if ($("#eScan", box)){
+    const fin = $("#eScanIn", box), msg = $("#eScanMsg", box), btn = $("#eScan", box);
+    const say = (t, err) => { msg.textContent = t; msg.hidden = !t; msg.classList.toggle("err", !!err); };
+    btn.addEventListener("click", () => fin.click());
+    fin.addEventListener("change", async () => {
+      const file = fin.files[0]; fin.value = ""; if (!file) return;
+      btn.disabled = true; say("Beleg wird gelesen … Das Bild bleibt auf diesem Gerät.");
+      try {
+        const f = await scanReceipt(file, p => say(scanStatus(p)));
+        if (!box.isConnected) return;
+        const v = x => x && x.v != null && x.v !== "" ? x.v : null, unsure = [];
+        const amt = v(f.total), d = v(f.date), m = v(f.merchant);
+        if (amt == null && !d && !m){ say("Auf dem Foto wurde nichts erkannt. Versuch es mit mehr Licht und dem Beleg formatfüllend, oder trag die Buchung von Hand ein.", true); return; }
+        const want = f.refund && f.refund.v ? 1 : -1;
+        if (want !== dir){ const r = $(`input[name="dir"][value="${want > 0 ? "in" : "out"}"]`, box); r.checked = true; r.dispatchEvent(new Event("change")); }
+        if (amt != null){ amtIn.value = n2.format(Math.abs(amt)).replace(/\./g,""); if (f.total.sure < 0.6) unsure.push("Betrag"); }
+        if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)){ $("#eDate", box).value = d; if (f.date.sure < 0.6) unsure.push("Datum"); }
+        if (m){ nameIn.value = String(m).slice(0, 60); if (f.merchant.sure < 0.6) unsure.push("Name"); }
+        const c = v(f.category), cid = c && (catMap.has(c) ? c : ([...catMap.values()].find(x => x.n === c) || {}).id);
+        if (cid && cat(cid).type === (dir > 0 ? "in" : "out")){ catSel = cid; catTouched = true; } else if (!catTouched) catSel = guess();
+        const note = [v(f.invoiceNo) && "Rechnung " + v(f.invoiceNo), /^\d{4}-\d\d-\d\d$/.test(v(f.dueDate) || "") && "fällig " + dDE(v(f.dueDate)), v(f.payment) === "bar" && "bar bezahlt"].filter(Boolean).join(", ");
+        if (note && !$("#eNote", box).value) $("#eNote", box).value = note.slice(0, 120);
+        drawCats(); ruleSync(); sugSync(); scanned = true;
+        const warn = v(f.warning);
+        say((unsure.length ? `Erkannt. Bitte prüfen: ${unsure.join(", ")}.` : "Erkannt. Bitte kurz prüfen und speichern.") + (warn ? " " + warn : ""));
+      } catch (e){
+        say(navigator.onLine === false ? "Die Belegerkennung wird beim ersten Mal einmalig geladen (ca. 5 MB). Bitte mit Internet erneut versuchen." : "Der Beleg konnte nicht gelesen werden. Bitte von Hand eintragen.", true);
+      } finally { btn.disabled = false; }
+    });
+  }
   const save = (again) => {
     const amt = parseAmount(amtIn.value), date = $("#eDate", box).value, name = nameIn.value.trim(), err = $("#eErr", box);
     const fail = (m, el) => { err.textContent = m; err.hidden = false; if (el) el.focus(); };
@@ -2326,6 +2361,7 @@ function txSheet(t){
     Object.assign(rec, {date, amount:r2(Math.abs(amt)*dir), name, cat:catSel || fallback(), note:$("#eNote", box).value.trim(), manualCat:true});
     if ($("#ePurp", box)) rec.purpose = $("#ePurp", box).value.trim(); else if (isNew) rec.purpose = "";
     if (!rec.note) delete rec.note;
+    if (isNew && scanned) rec.scan = true;
     months.add(ym(date));
     let ruled = 0;
     if (!$("#ruleBox", box).hidden && $("#eRule", box).checked) ruled = addRule(name, rec.cat, months);
@@ -2479,6 +2515,31 @@ function layoutSheet(){
   });
   $("#lReset", box).addEventListener("click", () => { state.layout = clone(DEFAULT_LAYOUT); markDirty([], true); render(); closeSheet(); layoutSheet(); });
 }
+
+/* ---------- Belegerkennung (nur App; Modul wird erst beim ersten Scan geladen) ---------- */
+const SCAN_OK = IS_APP && /^https?:$/.test(location.protocol);
+let scanLib = null;
+function loadScanner(){
+  if (window.HBKI) return Promise.resolve(window.HBKI);
+  return scanLib || (scanLib = new Promise((ok, fail) => {
+    const s = document.createElement("script"); s.src = "ki/ki-beleg.js";
+    s.onload = () => window.HBKI ? ok(window.HBKI) : fail(new Error("HBKI fehlt"));
+    s.onerror = () => { scanLib = null; s.remove(); fail(new Error("Laden fehlgeschlagen")); };
+    document.head.appendChild(s);
+  }));
+}
+async function scanReceipt(file, onProgress){
+  const ki = await loadScanner();
+  const categorize = name => { const c = name ? autoCat({name, purpose:"", amount:-1}) : null; return c && c !== "Sonstiges" ? c : null; };
+  const r = await ki.scan(file, {onProgress, categorize, base:"ki/"});
+  return r.fields || {};
+}
+const scanStatus = p => {
+  const st = String(p && p.status || ""), pc = p && p.progress > 0 && p.progress < 1 ? ` ${Math.round(p.progress*100)} %` : "";
+  if (/load|lade|initial/i.test(st)) return "Belegerkennung wird geladen …" + pc;
+  if (/recogn|erkenn/i.test(st)) return "Text wird gelesen …" + pc;
+  return "Beleg wird gelesen …" + pc;
+};
 
 /* ---------- Import ---------- */
 let imp = null;
@@ -2963,9 +3024,11 @@ function applyTheme(){
   addEventListener("pagehide", flushNow);
   if (IS_APP && "serviceWorker" in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();
-window.__hb = {state, ui, parseAmount, detect, rowToTx, autoCat, detectRecurring, monthPlan, render, bounds};
+if (location.protocol === "file:" || /[?&]test\b/.test(location.search)) window.__hb = {state, ui, parseAmount, detect, rowToTx, autoCat, detectRecurring, monthPlan, render, bounds};
 
 addEventListener("popstate", () => {
+  // eigener Rücksprung nach dem Schließen: ein inzwischen neu geöffneter Dialog bleibt offen
+  if (sheetBack){ sheetBack = false; sheetHist = false; if ($$(".sheet").some(s => !s.hidden)) sheetPush(); return; }
   if (!sheetHist) return;
   sheetHist = false;
   const open = $$(".sheet").filter(s => !s.hidden);

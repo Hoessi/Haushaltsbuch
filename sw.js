@@ -1,12 +1,14 @@
 // Offline-Cache für das Haushaltsbuch. Bei Änderungen an der App VERSION erhöhen.
-const VERSION = "hb-v6";
+const VERSION = "hb-v7";
+// Belegerkennung (ca. 5 MB) in eigenem Cache: erst bei Nutzung geladen, übersteht App-Updates. Bei neuen ki/-Dateien KI_CACHE erhöhen.
+const KI_CACHE = "hb-ki-1";
 const CORE = ["./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== KI_CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
   const req = e.request;
@@ -19,6 +21,11 @@ self.addEventListener("fetch", e => {
     e.waitUntil(net.catch(() => {}));
     e.respondWith(caches.match("index.html").then(hit => hit ||
       Promise.race([net, new Promise((_, rej) => setTimeout(rej, 4000))]).catch(() => caches.match("index.html").then(h => h || net))));
+    return;
+  }
+  if (url.origin === location.origin && url.pathname.includes("/ki/")){
+    e.respondWith(caches.open(KI_CACHE).then(c => c.match(req, {ignoreSearch:true}).then(hit => hit ||
+      fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; }))));
     return;
   }
   // Eigene Dateien und Schriften: Cache zuerst, im Hintergrund nachladen
