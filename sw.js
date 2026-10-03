@@ -1,5 +1,5 @@
 // Offline-Cache für das Haushaltsbuch. Bei Änderungen an der App VERSION erhöhen.
-const VERSION = "hb-v5";
+const VERSION = "hb-v6";
 const CORE = ["./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -12,10 +12,13 @@ self.addEventListener("fetch", e => {
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  // Seite: erst Netz (für Updates), sonst Cache
+  // Seite: sofort aus dem Cache (schneller Start auch bei schwachem Netz), im Hintergrund aktualisieren.
+  // Ohne Cache: Netz, nach 4 s Fallback auf den Cache.
   if (req.mode === "navigate"){
-    e.respondWith(fetch(req).then(r => { const c = r.clone(); caches.open(VERSION).then(x => x.put("index.html", c)); return r; })
-      .catch(() => caches.match("index.html")));
+    const net = fetch(req).then(r => { if (r.ok){ const c = r.clone(); caches.open(VERSION).then(x => x.put("index.html", c)); } return r; });
+    e.waitUntil(net.catch(() => {}));
+    e.respondWith(caches.match("index.html").then(hit => hit ||
+      Promise.race([net, new Promise((_, rej) => setTimeout(rej, 4000))]).catch(() => caches.match("index.html").then(h => h || net))));
     return;
   }
   // Eigene Dateien und Schriften: Cache zuerst, im Hintergrund nachladen
